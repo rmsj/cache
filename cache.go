@@ -23,7 +23,7 @@ func NewLRUCache(capacity int) (*LRUCache, error) {
 	if capacity < 2 {
 		return nil, errors.New("capacity must be at least 2")
 	}
-	c := make([]cacheEntry, capacity, capacity)
+	c := make([]cacheEntry, 0, capacity)
 	lru := LRUCache{
 		data: c,
 	}
@@ -43,17 +43,15 @@ func (c *LRUCache) Put(key int, value int) error {
 		}
 
 		// new cache entry
-		entry := cacheEntry{
+		c.data = append(c.data, cacheEntry{
 			key:       key,
 			value:     value,
 			timestamp: time.Now(),
-		}
-
-		c.data = append(c.data, entry)
+		})
 
 		// send least used/oldest to end
 		sort.SliceStable(c.data, func(i, j int) bool {
-			return c.data[i].timestamp.Before(c.data[j].timestamp)
+			return c.data[i].timestamp.After(c.data[j].timestamp)
 		})
 	}
 
@@ -66,6 +64,7 @@ func (c *LRUCache) Put(key int, value int) error {
 func (c *LRUCache) Get(key int) int {
 
 	idx := -1
+	value := -1
 	c.mu.Lock()
 	{
 		for i, v := range c.data {
@@ -75,12 +74,18 @@ func (c *LRUCache) Get(key int) int {
 			}
 		}
 
-		if idx == -1 {
-			return -1
+		if idx != -1 {
+			c.data[idx].timestamp = time.Now()
+			value = c.data[idx].value
 		}
+
+		// reorder
+		sort.SliceStable(c.data, func(i, j int) bool {
+			return c.data[i].timestamp.After(c.data[j].timestamp)
+		})
 	}
 
 	c.mu.Unlock()
 
-	return c.data[idx].value
+	return value
 }
