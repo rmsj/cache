@@ -7,15 +7,15 @@ import (
 	"time"
 )
 
-type cacheEntry struct{
-	key interface{}
-	value interface{}
+type cacheEntry struct {
+	key       int
+	value     int
 	timestamp time.Time
 }
 
-type LRUCache struct{
+type LRUCache struct {
 	data []cacheEntry
-	mu sync.Mutex
+	mu   sync.Mutex
 }
 
 // NewLRUCache builds and returns a pointer to an LRUCache
@@ -31,7 +31,8 @@ func NewLRUCache(capacity int) (*LRUCache, error) {
 	return &lru, nil
 }
 
-func (c *LRUCache) put(key interface{}, value interface{}) error {
+//Put adds a value to the cache with specified key
+func (c *LRUCache) Put(key int, value int) error {
 
 	c.mu.Lock()
 	{
@@ -43,17 +44,43 @@ func (c *LRUCache) put(key interface{}, value interface{}) error {
 
 		// new cache entry
 		entry := cacheEntry{
-			key: key,
-			value: value,
+			key:       key,
+			value:     value,
 			timestamp: time.Now(),
 		}
 
 		c.data = append(c.data, entry)
 
-		sort.Slice()
+		// send least used/oldest to end
+		sort.SliceStable(c.data, func(i, j int) bool {
+			return c.data[i].timestamp.Before(c.data[j].timestamp)
+		})
 	}
 
 	c.mu.Unlock()
 
 	return nil
+}
+
+//Get gets a value out of the cache or -1 if not found
+func (c *LRUCache) Get(key int) int {
+
+	idx := -1
+	c.mu.Lock()
+	{
+		for i, v := range c.data {
+			if v.key == key {
+				idx = i
+				break
+			}
+		}
+
+		if idx == -1 {
+			return -1
+		}
+	}
+
+	c.mu.Unlock()
+
+	return c.data[idx].value
 }
